@@ -53,6 +53,7 @@
         rgba(249,115,22,0.05) 60%,
         transparent 100%);
       animation: headerShimmer 6s ease-in-out infinite alternate;
+      pointer-events: none;
     }
     @keyframes headerShimmer {
       from { opacity: 0.4; }
@@ -595,6 +596,10 @@
 
     <div class="modal-footer">
       <button class="btn-secondary" onclick="document.getElementById('upload-modal').classList.remove('open')">Annuleren</button>
+      <button class="btn-secondary" onclick="document.getElementById('upload-modal').classList.remove('open'); loadSampleData()">
+        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        Voorbeelddata gebruiken
+      </button>
       <label class="btn-primary" for="upload-file-input" onclick="document.getElementById('upload-modal').classList.remove('open')">
         <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/></svg>
         Bestand kiezen
@@ -618,6 +623,10 @@
     </svg>
   </div>
   <p>Sleep je P1 CSV-bestand hierheen, of <label for="file-input">blader</label></p>
+  <p style="margin-top:0.75rem;font-size:0.85rem">
+    Geen bestand bij de hand?
+    <button onclick="loadSampleData()" style="background:none;border:none;color:var(--acc);cursor:pointer;font-size:inherit;text-decoration:underline;padding:0">Gebruik de voorbeelddata</button>
+  </p>
   <input type="file" id="file-input" accept=".csv" />
   <div class="upload-requirements">
     <p><strong>Vereiste kolomnamen</strong> (eerste rij van het CSV-bestand):</p>
@@ -746,6 +755,7 @@ const MONTHS = ['Jan','Feb','Mrt','Apr','Mei','Jun','Jul','Aug','Sep','Okt','Nov
 const DAYS   = ['Zo','Ma','Di','Wo','Do','Vr','Za'];
 let heatmapData = null;
 let rawRows = [];
+const chartInstances = {};
 
 // ── File handling ─────────────────────────────────────────────────────────
 
@@ -1067,7 +1077,8 @@ function buildDataTable() {
 // ── Chart factory ─────────────────────────────────────────────────────────
 
 function mkBarChart(id, labels, data, color) {
-  new Chart(document.getElementById(id), {
+  if (chartInstances[id]) { chartInstances[id].destroy(); }
+  chartInstances[id] = new Chart(document.getElementById(id), {
     type: 'bar',
     data: { labels, datasets: [{ data, backgroundColor:color+'bb', borderColor:color, borderWidth:1, borderRadius:4 }] },
     options: {
@@ -1104,6 +1115,29 @@ function renderHeatmap(mode) {
   }
   html+='</tbody></table>';
   document.getElementById('heatmap-wrap').innerHTML=html;
+}
+
+// ── Sample data ───────────────────────────────────────────────────────────
+
+async function loadSampleData() {
+  hideError();
+  dropZone.style.display = 'none';
+  document.getElementById('loading').style.display = 'block';
+  try {
+    const res = await fetch('voorbeeld-data.csv');
+    if (!res.ok) throw new Error('Voorbeeldbestand niet gevonden.');
+    const text = await res.text();
+    const data = parseCSV(text);
+    document.getElementById('active-file-name').textContent = 'voorbeeld-data.csv';
+    document.getElementById('active-file').style.display = 'inline-flex';
+    document.getElementById('upload-btn').style.display = 'inline-flex';
+    buildDashboard(data);
+  } catch(err) {
+    dropZone.style.display = 'block';
+    showError('Kon voorbeelddata niet laden.', err.message);
+  } finally {
+    document.getElementById('loading').style.display = 'none';
+  }
 }
 
 // ── Auto-load ─────────────────────────────────────────────────────────────
