@@ -604,13 +604,32 @@
     </div>
 
     <div class="upload-requirements" style="margin-top:0">
-      <p><strong>Vereiste kolomnamen</strong> (eerste rij van het CSV-bestand):</p>
+      <p><strong>Ondersteunde formaten</strong> — het formaat wordt automatisch herkend:</p>
+
+      <p style="margin-top:0.6rem;font-size:0.72rem;color:var(--acc);font-weight:600;text-transform:uppercase;letter-spacing:0.04em">2 tarieven (dag / nachttarief)</p>
       <div class="col-list">
         <div class="col-item"><span class="col-name">time</span><span class="col-desc">Tijdstip van meting (bijv. 2025-01-01 00:15)</span></div>
         <div class="col-item"><span class="col-name">Import T1 kWh</span><span class="col-desc">Cumulatieve afname tarief 1 (dal)</span></div>
         <div class="col-item"><span class="col-name">Import T2 kWh</span><span class="col-desc">Cumulatieve afname tarief 2 (piek)</span></div>
         <div class="col-item"><span class="col-name">Export T1 kWh</span><span class="col-desc">Cumulatieve teruglevering tarief 1</span></div>
         <div class="col-item"><span class="col-name">Export T2 kWh</span><span class="col-desc">Cumulatieve teruglevering tarief 2</span></div>
+      </div>
+
+      <p style="margin-top:0.75rem;font-size:0.72rem;color:var(--acc);font-weight:600;text-transform:uppercase;letter-spacing:0.04em">1 tarief — T1 kolom</p>
+      <div class="col-list">
+        <div class="col-item"><span class="col-name">time</span></div>
+        <div class="col-item"><span class="col-name">Import T1 kWh</span><span class="col-desc">Cumulatieve afname</span></div>
+        <div class="col-item"><span class="col-name">Export T1 kWh</span><span class="col-desc">Cumulatieve teruglevering</span></div>
+      </div>
+
+      <p style="margin-top:0.75rem;font-size:0.72rem;color:var(--acc);font-weight:600;text-transform:uppercase;letter-spacing:0.04em">1 tarief — enkelvoudig</p>
+      <div class="col-list">
+        <div class="col-item"><span class="col-name">time</span></div>
+        <div class="col-item"><span class="col-name">Import kWh</span><span class="col-desc">Cumulatieve afname</span></div>
+        <div class="col-item"><span class="col-name">Export kWh</span><span class="col-desc">Cumulatieve teruglevering</span></div>
+      </div>
+
+      <div class="col-list" style="margin-top:0.6rem">
         <div class="col-item"><span class="col-name" style="opacity:0.6">L1 max W</span><span class="col-desc" style="font-style:italic">Optioneel — max vermogen fase 1</span></div>
         <div class="col-item"><span class="col-name" style="opacity:0.6">L2 max W</span><span class="col-desc" style="font-style:italic">Optioneel — max vermogen fase 2</span></div>
         <div class="col-item"><span class="col-name" style="opacity:0.6">L3 max W</span><span class="col-desc" style="font-style:italic">Optioneel — max vermogen fase 3</span></div>
@@ -787,6 +806,7 @@ const DAYS   = ['Zo','Ma','Di','Wo','Do','Vr','Za'];
 let heatmapData = null;
 let rawRows = [];
 let allIntervals = [];
+let csvFormat = 't1t2'; // 't1t2' | 't1only' | 'simple'
 const chartInstances = {};
 
 // ── File handling ─────────────────────────────────────────────────────────
@@ -851,29 +871,63 @@ function esc(str) {
 
 // ── Parse ─────────────────────────────────────────────────────────────────
 
-const REQUIRED_HEADERS = ['time','Import T1 kWh','Import T2 kWh','Export T1 kWh','Export T2 kWh'];
+function detectFormat(headers) {
+  const has = col => headers.includes(col);
+  if (has('Import T1 kWh') && has('Import T2 kWh') && has('Export T1 kWh') && has('Export T2 kWh')) return 't1t2';
+  if (has('Import T1 kWh') && has('Export T1 kWh')) return 't1only';
+  if (has('Import kWh')    && has('Export kWh'))    return 'simple';
+  return null;
+}
 
 function parseCSV(text) {
   const clean = text.replace(/^﻿/, '');
   const lines = clean.trim().split(/\r?\n/);
   if (lines.length < 2) throw new Error('Het bestand bevat geen gegevensrijen.');
   const headers = lines[0].split(',').map(h => h.trim());
-  const missing = REQUIRED_HEADERS.filter(r => !headers.includes(r));
-  if (missing.length) throw new Error(`Ontbrekende kolommen: ${missing.map(h=>`"${h}"`).join(', ')}. Gevonden: ${headers.map(h=>`"${h}"`).join(', ')}.`);
+
+  if (!headers.includes('time')) throw new Error('Verplichte kolom "time" ontbreekt.');
+
+  const fmt = detectFormat(headers);
+  if (!fmt) throw new Error(
+    'Geen herkend formaat gevonden. Verwacht één van:\n' +
+    '• Import T1 kWh + Import T2 kWh + Export T1 kWh + Export T2 kWh\n' +
+    '• Import T1 kWh + Export T1 kWh\n' +
+    '• Import kWh + Export kWh\n' +
+    `Gevonden kolommen: ${headers.map(h=>`"${h}"`).join(', ')}.`
+  );
+  csvFormat = fmt;
+
   const idx = n => headers.indexOf(n);
-  const iTime=idx('time'), iT1i=idx('Import T1 kWh'), iT2i=idx('Import T2 kWh'), iT1e=idx('Export T1 kWh'), iT2e=idx('Export T2 kWh');
-  const iL1=idx('L1 max W'), iL2=idx('L2 max W'), iL3=idx('L3 max W');
+  const iTime = idx('time');
+  const iL1 = idx('L1 max W'), iL2 = idx('L2 max W'), iL3 = idx('L3 max W');
+
+  // Column indices per format
+  const iT1i = fmt === 'simple' ? idx('Import kWh')  : idx('Import T1 kWh');
+  const iT2i = fmt === 't1t2'   ? idx('Import T2 kWh') : -1;
+  const iT1e = fmt === 'simple' ? idx('Export kWh')  : idx('Export T1 kWh');
+  const iT2e = fmt === 't1t2'   ? idx('Export T2 kWh') : -1;
+
   rawRows = [];
   const rows = [];
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i].trim(); if (!line) continue;
     const cols = line.split(',');
-    if (cols.length <= Math.max(iTime,iT1i,iT2i,iT1e,iT2e)) continue;
+    const minCols = Math.max(iTime, iT1i, iT1e, iT2i < 0 ? 0 : iT2i, iT2e < 0 ? 0 : iT2e);
+    if (cols.length <= minCols) continue;
     const ts = new Date(cols[iTime].trim()); if (isNaN(ts)) continue;
-    const t1i=parseFloat(cols[iT1i]), t2i=parseFloat(cols[iT2i]), t1e=parseFloat(cols[iT1e]), t2e=parseFloat(cols[iT2e]);
-    if ([t1i,t2i,t1e,t2e].some(isNaN)) continue;
-    rawRows.push({ time:cols[iTime].trim(), t1imp:t1i.toFixed(3), t2imp:t2i.toFixed(3), t1exp:t1e.toFixed(3), t2exp:t2e.toFixed(3),
-      l1: iL1>=0?(cols[iL1]?.trim()??''):'', l2: iL2>=0?(cols[iL2]?.trim()??''):'', l3: iL3>=0?(cols[iL3]?.trim()??''):'' });
+    const t1i = parseFloat(cols[iT1i]);
+    const t2i = iT2i >= 0 ? parseFloat(cols[iT2i]) : 0;
+    const t1e = parseFloat(cols[iT1e]);
+    const t2e = iT2e >= 0 ? parseFloat(cols[iT2e]) : 0;
+    if ([t1i, t1e].some(isNaN)) continue;
+    rawRows.push({
+      time: cols[iTime].trim(),
+      t1imp: t1i.toFixed(3), t2imp: t2i.toFixed(3),
+      t1exp: t1e.toFixed(3), t2exp: t2e.toFixed(3),
+      l1: iL1>=0?(cols[iL1]?.trim()??''):'',
+      l2: iL2>=0?(cols[iL2]?.trim()??''):'',
+      l3: iL3>=0?(cols[iL3]?.trim()??''):'',
+    });
     rows.push({ ts, t1imp:t1i, t2imp:t2i, t1exp:t1e, t2exp:t2e, imp:t1i+t2i, exp:t1e+t2e });
   }
   if (rows.length < 2) throw new Error('Onvoldoende geldige rijen gevonden.');
@@ -1108,11 +1162,27 @@ function buildPeriodStats(intervals) {
 // ── Data table ────────────────────────────────────────────────────────────
 
 function buildDataTable() {
-  const tbody=document.getElementById('data-tbody');
-  const fragment=document.createDocumentFragment();
+  // Update headers based on detected format
+  const thead = document.querySelector('#data-table thead tr');
+  if (csvFormat === 'simple') {
+    thead.innerHTML = `<th>time</th><th class="imp-val">Import kWh</th><th class="exp-val">Export kWh</th><th>L1 max W</th><th>L2 max W</th><th>L3 max W</th>`;
+  } else if (csvFormat === 't1only') {
+    thead.innerHTML = `<th>time</th><th class="imp-val">Import T1 kWh</th><th class="exp-val">Export T1 kWh</th><th>L1 max W</th><th>L2 max W</th><th>L3 max W</th>`;
+  } else {
+    thead.innerHTML = `<th>time</th><th class="imp-val">Import T1 kWh</th><th class="imp-val">Import T2 kWh</th><th class="exp-val">Export T1 kWh</th><th class="exp-val">Export T2 kWh</th><th>L1 max W</th><th>L2 max W</th><th>L3 max W</th>`;
+  }
+
+  const tbody = document.getElementById('data-tbody');
+  const fragment = document.createDocumentFragment();
   for (const r of rawRows.slice(0,1000)) {
-    const tr=document.createElement('tr');
-    tr.innerHTML=`<td>${esc(r.time)}</td><td class="imp-val">${esc(r.t1imp)}</td><td class="imp-val">${esc(r.t2imp)}</td><td class="exp-val">${esc(r.t1exp)}</td><td class="exp-val">${esc(r.t2exp)}</td><td>${esc(r.l1)}</td><td>${esc(r.l2)}</td><td>${esc(r.l3)}</td>`;
+    const tr = document.createElement('tr');
+    if (csvFormat === 'simple') {
+      tr.innerHTML=`<td>${esc(r.time)}</td><td class="imp-val">${esc(r.t1imp)}</td><td class="exp-val">${esc(r.t1exp)}</td><td>${esc(r.l1)}</td><td>${esc(r.l2)}</td><td>${esc(r.l3)}</td>`;
+    } else if (csvFormat === 't1only') {
+      tr.innerHTML=`<td>${esc(r.time)}</td><td class="imp-val">${esc(r.t1imp)}</td><td class="exp-val">${esc(r.t1exp)}</td><td>${esc(r.l1)}</td><td>${esc(r.l2)}</td><td>${esc(r.l3)}</td>`;
+    } else {
+      tr.innerHTML=`<td>${esc(r.time)}</td><td class="imp-val">${esc(r.t1imp)}</td><td class="imp-val">${esc(r.t2imp)}</td><td class="exp-val">${esc(r.t1exp)}</td><td class="exp-val">${esc(r.t2exp)}</td><td>${esc(r.l1)}</td><td>${esc(r.l2)}</td><td>${esc(r.l3)}</td>`;
+    }
     fragment.appendChild(tr);
   }
   tbody.innerHTML=''; tbody.appendChild(fragment);
