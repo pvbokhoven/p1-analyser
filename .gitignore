@@ -1,5 +1,13 @@
+# Dependencies
+node_modules/
+
+# Claude Code configuratie
+.claude/
+
 # Echte meetdata — nooit inchecken
 P1e-*.csv
+public/P1e-*.csv
 
 # Voorbeeldbestand mag wel mee (geen echte data)
 !voorbeeld-data.csv
+!public/voorbeeld-data.csv

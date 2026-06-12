@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>P1 Energie Analyser</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #080c14;
+      --surface:  #0f1520;
+      --card:     #131a28;
+      --border:   #1c2640;
+      --border2:  #243050;
+      --text:     #e2e8f0;
+      --muted:    #6b7a99;
+      --imp:      #f97316;
+      --exp:      #22d3ee;
+      --net:      #a78bfa;
+      --acc:      #4f8ef7;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      background-image: radial-gradient(circle, rgba(79,142,247,0.04) 1px, transparent 1px);
+      background-size: 28px 28px;
+    }
+
+    /* ── Header ─────────────────────────────────────────────── */
+    header {
+      position: relative;
+      padding: 1.1rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      background: linear-gradient(135deg, #0b1220 0%, #0f1a2e 50%, #0b1220 100%);
+      border-bottom: 1px solid var(--border);
+      overflow: hidden;
+    }
+    header::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg,
+        transparent 0%,
+        rgba(79,142,247,0.06) 30%,
+        rgba(249,115,22,0.05) 60%,
+        transparent 100%);
+      animation: headerShimmer 6s ease-in-out infinite alternate;
+    }
+    @keyframes headerShimmer {
+      from { opacity: 0.4; }
+      to   { opacity: 1; }
+    }
+    header::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--imp), var(--acc), var(--exp), transparent);
+      animation: borderPulse 4s ease-in-out infinite alternate;
+    }
+    @keyframes borderPulse {
+      from { opacity: 0.5; }
+      to   { opacity: 1; }
+    }
+
+    .header-logo {
+      position: relative;
+      flex-shrink: 0;
+      width: 48px; height: 48px;
+    }
+    .header-logo svg {
+      filter: drop-shadow(0 0 8px rgba(249,115,22,0.5)) drop-shadow(0 0 16px rgba(79,142,247,0.3));
+    }
+
+    .header-left {
+      flex: 1;
+      min-width: 0;
+      position: relative;
+    }
+    header h1 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, #fff 30%, #94b4f7 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    header p {
+      color: var(--muted);
+      font-size: 0.8rem;
+      margin-top: 0.15rem;
+    }
+
+    #active-file {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      margin-top: 0.35rem;
+      font-size: 0.75rem;
+      color: var(--acc);
+      background: rgba(79,142,247,0.1);
+      border: 1px solid rgba(79,142,247,0.25);
+      border-radius: 5px;
+      padding: 0.2rem 0.6rem;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    #upload-btn {
+      flex-shrink: 0;
+      display: none;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.5rem 1.1rem;
+      background: rgba(79,142,247,0.08);
+      border: 1px solid var(--border2);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 0.825rem;
+      cursor: pointer;
+      transition: all 0.15s;
+      position: relative;
+    }
+    #upload-btn:hover {
+      border-color: var(--acc);
+      background: rgba(79,142,247,0.15);
+      color: var(--acc);
+    }
+    #upload-file-input { display: none; }
+
+    /* ── Drop zone ──────────────────────────────────────────── */
+    #drop-zone {
+      margin: 2.5rem auto;
+      max-width: 620px;
+      border: 2px dashed var(--border2);
+      border-radius: 16px;
+      padding: 3rem 2rem 2rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+      background: linear-gradient(160deg, rgba(79,142,247,0.03), transparent);
+    }
+    #drop-zone:hover, #drop-zone.drag-over {
+      border-color: var(--acc);
+      background: rgba(79,142,247,0.06);
+      box-shadow: 0 0 40px rgba(79,142,247,0.08);
+    }
+    .drop-icon {
+      margin: 0 auto 1.25rem;
+      width: 64px; height: 64px;
+      background: linear-gradient(135deg, rgba(249,115,22,0.12), rgba(79,142,247,0.12));
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid rgba(249,115,22,0.2);
+    }
+    #drop-zone p { color: var(--muted); font-size: 0.95rem; }
+    #drop-zone label { color: var(--acc); cursor: pointer; text-decoration: underline; }
+    #file-input { display: none; }
+
+    .upload-requirements {
+      margin-top: 1.5rem;
+      background: rgba(12,18,32,0.8);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem 1.25rem;
+      text-align: left;
+    }
+    .upload-requirements p { font-size: 0.75rem; color: var(--muted); margin-bottom: 0.5rem; }
+    .upload-requirements p strong { color: var(--text); }
+    .col-list { display: flex; flex-direction: column; gap: 0.3rem; margin-top: 0.5rem; }
+    .col-item { display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; }
+    .col-name {
+      font-family: monospace;
+      background: var(--border);
+      border-radius: 3px;
+      padding: 1px 6px;
+      color: var(--acc);
+      white-space: nowrap;
+    }
+    .col-desc { color: var(--muted); }
+    .upload-rules {
+      display: flex; gap: 1rem; flex-wrap: wrap;
+      margin-top: 0.75rem; padding-top: 0.75rem;
+      border-top: 1px solid var(--border);
+    }
+    .upload-rule { display: flex; align-items: center; gap: 0.3rem; font-size: 0.7rem; color: var(--muted); }
+    .upload-rule svg { color: #34d399; flex-shrink: 0; }
+
+    /* ── Error bar ──────────────────────────────────────────── */
+    #error-bar {
+      display: none;
+      margin: 0 2rem 1rem;
+      background: rgba(239,68,68,0.08);
+      border: 1px solid rgba(239,68,68,0.3);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      color: #fca5a5;
+      font-size: 0.85rem;
+    }
+    #error-bar strong { color: #f87171; display: block; margin-bottom: 0.2rem; }
+    #error-bar .error-close { float: right; cursor: pointer; color: #f87171; font-size: 1rem; margin-left: 0.5rem; }
+
+    /* ── Loading ────────────────────────────────────────────── */
+    #loading { display: none; text-align: center; padding: 4rem; color: var(--muted); }
+    .spinner {
+      width: 40px; height: 40px;
+      border: 3px solid var(--border);
+      border-top-color: var(--imp);
+      border-right-color: var(--acc);
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+      margin: 0 auto 1rem;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Dashboard ──────────────────────────────────────────── */
+    #dashboard { display: none; padding: 2rem; }
+
+    /* ── KPI cards ──────────────────────────────────────────── */
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.75rem;
+    }
+    .kpi {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem 1.25rem 1.1rem;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .kpi:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+    .kpi::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 3px;
+      border-radius: 12px 0 0 12px;
+    }
+    .kpi.imp::before  { background: var(--imp); }
+    .kpi.exp::before  { background: var(--exp); }
+    .kpi.net::before  { background: var(--net); }
+    .kpi.self::before { background: var(--net); }
+    .kpi.period::before { background: var(--acc); }
+    .kpi-header { display: flex; align-items: flex-start; justify-content: space-between; }
+    .kpi .label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+    .kpi-icon {
+      width: 32px; height: 32px;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .kpi.imp  .kpi-icon { background: rgba(249,115,22,0.12); color: var(--imp); }
+    .kpi.exp  .kpi-icon { background: rgba(34,211,238,0.12);  color: var(--exp); }
+    .kpi.net  .kpi-icon { background: rgba(167,139,250,0.12); color: var(--net); }
+    .kpi.self .kpi-icon { background: rgba(167,139,250,0.12); color: var(--net); }
+    .kpi.period .kpi-icon { background: rgba(79,142,247,0.12); color: var(--acc); }
+    .kpi .value { font-size: 1.8rem; font-weight: 700; margin-top: 0.5rem; line-height: 1; }
+    .kpi .sub   { font-size: 0.7rem; color: var(--muted); margin-top: 0.3rem; }
+    .import-color { color: var(--imp); }
+    .export-color { color: var(--exp); }
+    .net-color    { color: var(--net); }
+    .acc-color    { color: var(--acc); }
+
+    /* ── Stats section ──────────────────────────────────────── */
+    .stats-section { margin-bottom: 1.75rem; }
+    .stats-section h2 {
+      font-size: 0.7rem; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.06em;
+      margin-bottom: 0.75rem;
+    }
+    .stats-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;
+    }
+    @media (max-width: 700px) { .stats-grid { grid-template-columns: 1fr; } }
+    .stats-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; overflow: hidden;
+    }
+    .stats-card-header {
+      padding: 0.7rem 1rem; font-size: 0.72rem; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.05em;
+      border-bottom: 1px solid var(--border);
+    }
+    .stats-card-header.import { color: var(--imp); background: rgba(249,115,22,0.06); }
+    .stats-card-header.export { color: var(--exp); background: rgba(34,211,238,0.06); }
+    .stats-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+    .stats-table th {
+      padding: 0.45rem 1rem; text-align: left; color: var(--muted); font-weight: 500;
+      border-bottom: 1px solid var(--border); background: var(--surface);
+    }
+    .stats-table td { padding: 0.45rem 1rem; border-bottom: 1px solid rgba(28,38,64,0.6); }
+    .stats-table tr:last-child td { border-bottom: none; }
+    .stats-table td:nth-child(2), .stats-table td:nth-child(3) { text-align: right; font-variant-numeric: tabular-nums; }
+    .stat-val { font-weight: 600; }
+    .stat-sub { color: var(--muted); font-size: 0.72rem; }
+    .badge {
+      display: inline-block; font-size: 0.63rem; padding: 1px 5px;
+      border-radius: 3px; margin-left: 4px; vertical-align: middle; font-weight: 600;
+    }
+    .badge-imp { background: rgba(249,115,22,0.2); color: var(--imp); }
+    .badge-exp { background: rgba(34,211,238,0.2); color: var(--exp); }
+
+    /* ── Tabs ───────────────────────────────────────────────── */
+    .tabs {
+      display: flex; gap: 0.4rem; margin-bottom: 1.5rem; flex-wrap: wrap;
+    }
+    .tab {
+      padding: 0.45rem 1.1rem; border-radius: 8px;
+      border: 1px solid var(--border);
+      background: transparent; color: var(--muted);
+      cursor: pointer; font-size: 0.85rem;
+      transition: all 0.15s;
+    }
+    .tab:hover { border-color: var(--border2); color: var(--text); }
+    .tab.active {
+      background: linear-gradient(135deg, rgba(79,142,247,0.2), rgba(249,115,22,0.15));
+      border-color: rgba(79,142,247,0.4);
+      color: #fff;
+    }
+
+    /* ── Chart cards ────────────────────────────────────────── */
+    .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+    @media (max-width: 900px) { .chart-grid { grid-template-columns: 1fr; } }
+    .chart-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 1.5rem; transition: box-shadow 0.2s;
+    }
+    .chart-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.25); }
+    .chart-card h3 {
+      font-size: 0.72rem; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 1rem;
+    }
+    .chart-card canvas { width: 100% !important; }
+
+    /* ── Heatmap ────────────────────────────────────────────── */
+    .heatmap-card {
+      grid-column: 1 / -1; background: var(--card);
+      border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem;
+    }
+    .heatmap-card h3 {
+      font-size: 0.72rem; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 1rem;
+    }
+    #heatmap-toggle { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+    .hm-btn {
+      padding: 0.3rem 0.9rem; border-radius: 6px; border: 1px solid var(--border2);
+      background: transparent; color: var(--muted); cursor: pointer; font-size: 0.8rem;
+      transition: all 0.15s;
+    }
+    .hm-btn.active { background: var(--imp); border-color: var(--imp); color: #fff; }
+    .hm-btn.active.export { background: var(--exp); border-color: var(--exp); color: #0a0f1a; }
+    #heatmap-wrap { overflow-x: auto; }
+    #heatmap-table { border-collapse: collapse; font-size: 0.68rem; }
+    #heatmap-table th, #heatmap-table td { padding: 3px 5px; text-align: center; white-space: nowrap; }
+    #heatmap-table th { color: var(--muted); }
+    .hm-cell { width: 28px; height: 22px; border-radius: 3px; }
+
+    /* ── Panels ─────────────────────────────────────────────── */
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    /* ── Periodes ───────────────────────────────────────────── */
+    .period-config {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 1.25rem 1.5rem; margin-bottom: 1.5rem;
+    }
+    .period-config h3 {
+      font-size: 0.7rem; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 1rem;
+    }
+    .period-rows { display: flex; flex-direction: column; gap: 0.6rem; }
+    .period-row { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+    .period-row .period-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .period-row label { font-size: 0.8rem; color: var(--text); min-width: 130px; }
+    .period-row input[type=time] {
+      background: var(--surface); border: 1px solid var(--border2);
+      border-radius: 6px; color: var(--text); font-size: 0.8rem;
+      padding: 0.3rem 0.6rem; width: 100px;
+    }
+    .period-row span.sep { color: var(--muted); font-size: 0.8rem; }
+    .period-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; }
+    .period-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+    .period-card-header {
+      padding: 0.75rem 1rem; font-size: 0.8rem; font-weight: 600;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 0.5rem;
+    }
+    .period-card-header .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .period-card-header .time-range { font-size: 0.7rem; font-weight: 400; color: var(--muted); margin-left: auto; }
+    .period-stat-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+    .period-stat-table th {
+      padding: 0.4rem 0.9rem; text-align: left; color: var(--muted);
+      font-weight: 500; font-size: 0.72rem; border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+    .period-stat-table th:not(:first-child) { text-align: right; }
+    .period-stat-table td { padding: 0.4rem 0.9rem; border-bottom: 1px solid rgba(28,38,64,0.5); font-variant-numeric: tabular-nums; }
+    .period-stat-table td:not(:first-child) { text-align: right; }
+    .period-stat-table tr:last-child td { border-bottom: none; }
+    .period-stat-table .imp { color: var(--imp); font-weight: 600; }
+    .period-stat-table .exp { color: var(--exp); font-weight: 600; }
+
+    /* ── Data table ─────────────────────────────────────────── */
+    .data-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+    .data-table th {
+      padding: 0.5rem 1rem; text-align: left; color: var(--muted); font-weight: 500;
+      border-bottom: 2px solid var(--border); background: var(--surface);
+      position: sticky; top: 0; white-space: nowrap;
+    }
+    .data-table th:not(:first-child) { text-align: right; }
+    .data-table td { padding: 0.4rem 1rem; border-bottom: 1px solid rgba(28,38,64,0.5); white-space: nowrap; }
+    .data-table td:not(:first-child) { text-align: right; }
+    .data-table tbody tr:hover { background: rgba(28,38,64,0.6); }
+    .data-table .imp-val { color: var(--imp); }
+    .data-table .exp-val { color: var(--exp); }
+  </style>
+</head>
+<body>
+
+<!-- ── Header ─────────────────────────────────────────────────────────── -->
+<header>
+  <div class="header-logo">
+    <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- Meter body -->
+      <rect x="6" y="4" width="36" height="40" rx="5" fill="url(#meterGrad)" stroke="rgba(249,115,22,0.4)" stroke-width="1.2"/>
+      <!-- Screen -->
+      <rect x="10" y="9" width="28" height="13" rx="3" fill="rgba(10,20,40,0.9)" stroke="rgba(79,142,247,0.4)" stroke-width="0.8"/>
+      <!-- Screen digits -->
+      <rect x="13" y="12" width="5" height="7" rx="1" fill="rgba(34,211,238,0.7)"/>
+      <rect x="20" y="12" width="5" height="7" rx="1" fill="rgba(34,211,238,0.7)"/>
+      <rect x="27" y="12" width="5" height="7" rx="1" fill="rgba(34,211,238,0.7)"/>
+      <!-- Lightning bolt -->
+      <path d="M27 26L20 36H25L21 44L32 31H26L27 26Z" fill="url(#boltGrad)" stroke="rgba(249,115,22,0.6)" stroke-width="0.5" stroke-linejoin="round"/>
+      <!-- P1 port dots -->
+      <circle cx="12" cy="39" r="1.5" fill="rgba(79,142,247,0.8)"/>
+      <circle cx="16" cy="39" r="1.5" fill="rgba(79,142,247,0.8)"/>
+      <circle cx="12" cy="43" r="1.5" fill="rgba(79,142,247,0.6)"/>
+      <circle cx="16" cy="43" r="1.5" fill="rgba(79,142,247,0.6)"/>
+      <defs>
+        <linearGradient id="meterGrad" x1="6" y1="4" x2="42" y2="44" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stop-color="#1a2540"/>
+          <stop offset="100%" stop-color="#0f1828"/>
+        </linearGradient>
+        <linearGradient id="boltGrad" x1="20" y1="26" x2="32" y2="44" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stop-color="#fbbf24"/>
+          <stop offset="100%" stop-color="#f97316"/>
+        </linearGradient>
+      </defs>
+    </svg>
+  </div>
+
+  <div class="header-left">
+    <h1>P1 Energie Analyser</h1>
+    <p>Slimme meter gegevens — analyse van afname &amp; teruglevering</p>
+    <div id="active-file" style="display:none">
+      <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+      <span id="active-file-name"></span>
+    </div>
+  </div>
+
+  <label id="upload-btn" for="upload-file-input">
+    <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/></svg>
+    Ander bestand
+  </label>
+  <input type="file" id="upload-file-input" accept=".csv" />
+</header>
+
+<!-- ── Error bar ───────────────────────────────────────────────────────── -->
+<div id="error-bar">
+  <span class="error-close" onclick="document.getElementById('error-bar').style.display='none'">✕</span>
+  <strong id="error-title"></strong>
+  <span id="error-detail"></span>
+</div>
+
+<!-- ── Drop zone ──────────────────────────────────────────────────────── -->
+<div id="drop-zone">
+  <div class="drop-icon">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke="#f97316"/>
+    </svg>
+  </div>
+  <p>Sleep je P1 CSV-bestand hierheen, of <label for="file-input">blader</label></p>
+  <input type="file" id="file-input" accept=".csv" />
+  <div class="upload-requirements">
+    <p><strong>Vereiste kolomnamen</strong> (eerste rij van het CSV-bestand):</p>
+    <div class="col-list">
+      <div class="col-item"><span class="col-name">time</span><span class="col-desc">Tijdstip van meting (bijv. 2025-01-01 00:15)</span></div>
+      <div class="col-item"><span class="col-name">Import T1 kWh</span><span class="col-desc">Cumulatieve afname tarief 1 (dal)</span></div>
+      <div class="col-item"><span class="col-name">Import T2 kWh</span><span class="col-desc">Cumulatieve afname tarief 2 (piek)</span></div>
+      <div class="col-item"><span class="col-name">Export T1 kWh</span><span class="col-desc">Cumulatieve teruglevering tarief 1</span></div>
+      <div class="col-item"><span class="col-name">Export T2 kWh</span><span class="col-desc">Cumulatieve teruglevering tarief 2</span></div>
+    </div>
+    <div class="upload-rules">
+      <span class="upload-rule"><svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>Alleen .csv bestanden</span>
+      <span class="upload-rule"><svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>Maximaal 10 MB</span>
+      <span class="upload-rule"><svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>Verwerking vindt lokaal in je browser plaats — er worden geen gegevens verstuurd</span>
+    </div>
+  </div>
+</div>
+
+<!-- ── Loading ─────────────────────────────────────────────────────────── -->
+<div id="loading"><div class="spinner"></div><p>Gegevens verwerken…</p></div>
+
+<!-- ── Dashboard ──────────────────────────────────────────────────────── -->
+<div id="dashboard">
+  <div class="kpi-row" id="kpi-row"></div>
+  <div class="stats-section" id="stats-section"></div>
+
+  <div class="tabs">
+    <button class="tab active" data-panel="hourly">Per uur</button>
+    <button class="tab" data-panel="daily">Per weekdag</button>
+    <button class="tab" data-panel="monthly">Per maand</button>
+    <button class="tab" data-panel="heatmap">Heatmap</button>
+    <button class="tab" data-panel="periodes">Periodes</button>
+    <button class="tab" data-panel="data">Datavoorbeeld</button>
+  </div>
+
+  <div id="panel-hourly" class="panel active">
+    <div class="chart-grid">
+      <div class="chart-card"><h3>Gemiddelde afname per uur (kWh)</h3><canvas id="chart-hour-import"></canvas></div>
+      <div class="chart-card"><h3>Gemiddelde teruglevering per uur (kWh)</h3><canvas id="chart-hour-export"></canvas></div>
+    </div>
+  </div>
+
+  <div id="panel-daily" class="panel">
+    <div class="chart-grid">
+      <div class="chart-card"><h3>Gemiddelde afname per weekdag (kWh)</h3><canvas id="chart-dow-import"></canvas></div>
+      <div class="chart-card"><h3>Gemiddelde teruglevering per weekdag (kWh)</h3><canvas id="chart-dow-export"></canvas></div>
+    </div>
+  </div>
+
+  <div id="panel-monthly" class="panel">
+    <div class="chart-grid">
+      <div class="chart-card"><h3>Totale afname per maand (kWh)</h3><canvas id="chart-month-import"></canvas></div>
+      <div class="chart-card"><h3>Totale teruglevering per maand (kWh)</h3><canvas id="chart-month-export"></canvas></div>
+    </div>
+  </div>
+
+  <div id="panel-heatmap" class="panel">
+    <div class="chart-grid">
+      <div class="heatmap-card">
+        <h3>Heatmap — uur van de dag × maand</h3>
+        <div id="heatmap-toggle">
+          <button class="hm-btn active" id="hm-import-btn" onclick="renderHeatmap('import')">Afname</button>
+          <button class="hm-btn" id="hm-export-btn" onclick="renderHeatmap('export')">Teruglevering</button>
+        </div>
+        <div id="heatmap-wrap"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="panel-periodes" class="panel">
+    <div class="period-config">
+      <h3>Tijdsperiodes instellen</h3>
+      <div class="period-rows">
+        <div class="period-row">
+          <div class="period-dot" style="background:#a78bfa"></div>
+          <label>Avond / nacht</label>
+          <input type="time" id="p0-start" value="18:00" />
+          <span class="sep">tot</span>
+          <input type="time" id="p0-end" value="07:00" />
+        </div>
+        <div class="period-row">
+          <div class="period-dot" style="background:#f97316"></div>
+          <label>Ochtend</label>
+          <input type="time" id="p1-start" value="07:00" />
+          <span class="sep">tot</span>
+          <input type="time" id="p1-end" value="10:00" />
+        </div>
+        <div class="period-row">
+          <div class="period-dot" style="background:#22d3ee"></div>
+          <label>Dag</label>
+          <input type="time" id="p2-start" value="10:00" />
+          <span class="sep">tot</span>
+          <input type="time" id="p2-end" value="18:00" />
+        </div>
+      </div>
+    </div>
+    <div class="period-cards" id="period-cards"></div>
+  </div>
+
+  <div id="panel-data" class="panel">
+    <div class="chart-card">
+      <h3>Eerste 1000 rijen van het bestand</h3>
+      <div style="overflow-x:auto">
+        <table id="data-table" class="data-table">
+          <thead>
+            <tr>
+              <th>time</th>
+              <th class="imp-val">Import T1 kWh</th>
+              <th class="imp-val">Import T2 kWh</th>
+              <th class="exp-val">Export T1 kWh</th>
+              <th class="exp-val">Export T2 kWh</th>
+              <th>L1 max W</th>
+              <th>L2 max W</th>
+              <th>L3 max W</th>
+            </tr>
+          </thead>
+          <tbody id="data-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const MONTHS = ['Jan','Feb','Mrt','Apr','Mei','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
+const DAYS   = ['Zo','Ma','Di','Wo','Do','Vr','Za'];
+let heatmapData = null;
+let rawRows = [];
+
+// ── File handling ─────────────────────────────────────────────────────────
+
+const dropZone  = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('drag-over'); handleFile(e.dataTransfer.files[0]); });
+fileInput.addEventListener('change', e => handleFile(e.target.files[0]));
+
+const uploadFileInput = document.getElementById('upload-file-input');
+uploadFileInput.addEventListener('change', e => { handleFile(e.target.files[0]); e.target.value = ''; });
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+
+function showError(title, detail) {
+  const bar = document.getElementById('error-bar');
+  document.getElementById('error-title').textContent = title;
+  document.getElementById('error-detail').textContent = detail;
+  bar.style.display = 'block';
+}
+function hideError() { document.getElementById('error-bar').style.display = 'none'; }
+
+function validateFile(file) {
+  const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+  if (ext !== '.csv') { showError('Ongeldig bestandstype.', `Alleen .csv bestanden zijn toegestaan. Je uploadde: ${ext || '(geen extensie)'}`); return false; }
+  if (file.size > MAX_FILE_SIZE) { showError('Bestand te groot.', `Maximaal 10 MB. Je bestand is ${(file.size/1024/1024).toFixed(1)} MB.`); return false; }
+  if (file.size === 0) { showError('Leeg bestand.', 'Het bestand bevat geen gegevens.'); return false; }
+  return true;
+}
+
+function handleFile(file) {
+  if (!file) return;
+  hideError();
+  if (!validateFile(file)) return;
+  dropZone.style.display = 'none';
+  document.getElementById('loading').style.display = 'block';
+  document.getElementById('active-file-name').textContent = file.name;
+  document.getElementById('active-file').style.display = 'inline-flex';
+  document.getElementById('upload-btn').style.display = 'inline-flex';
+  const reader = new FileReader();
+  reader.onload = e => {
+    try { const data = parseCSV(e.target.result); buildDashboard(data); }
+    catch(err) {
+      dropZone.style.display = 'block';
+      document.getElementById('active-file').style.display = 'none';
+      document.getElementById('upload-btn').style.display = 'none';
+      showError('Bestand kon niet worden verwerkt.', err.message);
+    } finally { document.getElementById('loading').style.display = 'none'; }
+  };
+  reader.onerror = () => { dropZone.style.display = 'block'; document.getElementById('loading').style.display = 'none'; showError('Leesfout.', 'Probeer het opnieuw.'); };
+  reader.readAsText(file);
+}
+
+// ── HTML escaping ─────────────────────────────────────────────────────────
+
+function esc(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// ── Parse ─────────────────────────────────────────────────────────────────
+
+const REQUIRED_HEADERS = ['time','Import T1 kWh','Import T2 kWh','Export T1 kWh','Export T2 kWh'];
+
+function parseCSV(text) {
+  const clean = text.replace(/^﻿/, '');
+  const lines = clean.trim().split(/\r?\n/);
+  if (lines.length < 2) throw new Error('Het bestand bevat geen gegevensrijen.');
+  const headers = lines[0].split(',').map(h => h.trim());
+  const missing = REQUIRED_HEADERS.filter(r => !headers.includes(r));
+  if (missing.length) throw new Error(`Ontbrekende kolommen: ${missing.map(h=>`"${h}"`).join(', ')}. Gevonden: ${headers.map(h=>`"${h}"`).join(', ')}.`);
+  const idx = n => headers.indexOf(n);
+  const iTime=idx('time'), iT1i=idx('Import T1 kWh'), iT2i=idx('Import T2 kWh'), iT1e=idx('Export T1 kWh'), iT2e=idx('Export T2 kWh');
+  const iL1=idx('L1 max W'), iL2=idx('L2 max W'), iL3=idx('L3 max W');
+  rawRows = [];
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim(); if (!line) continue;
+    const cols = line.split(',');
+    if (cols.length <= Math.max(iTime,iT1i,iT2i,iT1e,iT2e)) continue;
+    const ts = new Date(cols[iTime].trim()); if (isNaN(ts)) continue;
+    const t1i=parseFloat(cols[iT1i]), t2i=parseFloat(cols[iT2i]), t1e=parseFloat(cols[iT1e]), t2e=parseFloat(cols[iT2e]);
+    if ([t1i,t2i,t1e,t2e].some(isNaN)) continue;
+    rawRows.push({ time:cols[iTime].trim(), t1imp:t1i.toFixed(3), t2imp:t2i.toFixed(3), t1exp:t1e.toFixed(3), t2exp:t2e.toFixed(3),
+      l1: iL1>=0?(cols[iL1]?.trim()??''):'', l2: iL2>=0?(cols[iL2]?.trim()??''):'', l3: iL3>=0?(cols[iL3]?.trim()??''):'' });
+    rows.push({ ts, t1imp:t1i, t2imp:t2i, t1exp:t1e, t2exp:t2e, imp:t1i+t2i, exp:t1e+t2e });
+  }
+  if (rows.length < 2) throw new Error('Onvoldoende geldige rijen gevonden.');
+  const intervals = [];
+  for (let i = 1; i < rows.length; i++) {
+    const p=rows[i-1], c=rows[i];
+    intervals.push({ ts:c.ts, imp:Math.max(0,c.imp-p.imp), exp:Math.max(0,c.exp-p.exp),
+      impT1:Math.max(0,c.t1imp-p.t1imp), impT2:Math.max(0,c.t2imp-p.t2imp),
+      expT1:Math.max(0,c.t1exp-p.t1exp), expT2:Math.max(0,c.t2exp-p.t2exp) });
+  }
+  return intervals;
+}
+
+// ── Aggregate helpers ─────────────────────────────────────────────────────
+
+function aggBy(intervals, keyFn) {
+  const sumImp={}, sumExp={}, cnt={};
+  for (const r of intervals) {
+    const k=keyFn(r.ts);
+    sumImp[k]=(sumImp[k]||0)+r.imp; sumExp[k]=(sumExp[k]||0)+r.exp; cnt[k]=(cnt[k]||0)+1;
+  }
+  return { sumImp, sumExp, cnt };
+}
+function avgBy(agg, keys) {
+  return {
+    imp: keys.map(k => agg.cnt[k] ? agg.sumImp[k]/agg.cnt[k]*4 : 0),
+    exp: keys.map(k => agg.cnt[k] ? agg.sumExp[k]/agg.cnt[k]*4 : 0),
+  };
+}
+
+// ── Dashboard ─────────────────────────────────────────────────────────────
+
+function buildDashboard(intervals) {
+  const totImp = intervals.reduce((s,r)=>s+r.imp,0);
+  const totExp = intervals.reduce((s,r)=>s+r.exp,0);
+
+  document.getElementById('kpi-row').innerHTML = `
+    <div class="kpi imp">
+      <div class="kpi-header">
+        <div class="label">Totale afname</div>
+        <div class="kpi-icon"><svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 15l9-9 9 9"/></svg></div>
+      </div>
+      <div class="value import-color">${totImp.toFixed(0)} <small style="font-size:1rem">kWh</small></div>
+    </div>
+    <div class="kpi exp">
+      <div class="kpi-header">
+        <div class="label">Totale teruglevering</div>
+        <div class="kpi-icon"><svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9l9 9 9-9"/></svg></div>
+      </div>
+      <div class="value export-color">${totExp.toFixed(0)} <small style="font-size:1rem">kWh</small></div>
+    </div>
+    <div class="kpi net">
+      <div class="kpi-header">
+        <div class="label">Netto verbruik</div>
+        <div class="kpi-icon"><svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg></div>
+      </div>
+      <div class="value net-color">${(totImp-totExp).toFixed(0)} <small style="font-size:1rem">kWh</small></div>
+    </div>
+    <div class="kpi period">
+      <div class="kpi-header">
+        <div class="label">Periode</div>
+        <div class="kpi-icon"><svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
+      </div>
+      <div class="value acc-color" style="font-size:0.95rem;padding-top:0.5rem">${intervals[0].ts.toLocaleDateString('nl-NL')} – ${intervals[intervals.length-1].ts.toLocaleDateString('nl-NL')}</div>
+    </div>`;
+
+  buildStats(intervals, totImp, totExp);
+  buildDataTable();
+  buildPeriodStats(intervals);
+  document.querySelectorAll('.period-row input[type=time]').forEach(inp => {
+    inp.addEventListener('change', () => buildPeriodStats(_periodIntervals));
+  });
+
+  const hourAgg=aggBy(intervals, ts=>ts.getHours()), hourKeys=[...Array(24).keys()], hourAvg=avgBy(hourAgg,hourKeys);
+  mkBarChart('chart-hour-import', hourKeys.map(h=>`${String(h).padStart(2,'0')}:00`), hourAvg.imp, '#f97316');
+  mkBarChart('chart-hour-export', hourKeys.map(h=>`${String(h).padStart(2,'0')}:00`), hourAvg.exp, '#22d3ee');
+
+  const daySet={}, dowSumImp=new Array(7).fill(0), dowSumExp=new Array(7).fill(0);
+  for (const r of intervals) {
+    const d=r.ts.toDateString();
+    if (!daySet[d]) daySet[d]=r.ts.getDay();
+    dowSumImp[r.ts.getDay()]+=r.imp; dowSumExp[r.ts.getDay()]+=r.exp;
+  }
+  const dowCnt=new Array(7).fill(0);
+  for (const d of Object.values(daySet)) dowCnt[d]++;
+  mkBarChart('chart-dow-import', DAYS, DAYS.map((_,i)=>dowCnt[i]?dowSumImp[i]/dowCnt[i]:0), '#f97316');
+  mkBarChart('chart-dow-export', DAYS, DAYS.map((_,i)=>dowCnt[i]?dowSumExp[i]/dowCnt[i]:0), '#22d3ee');
+
+  const monthSumImp=new Array(12).fill(0), monthSumExp=new Array(12).fill(0);
+  for (const r of intervals) { monthSumImp[r.ts.getMonth()]+=r.imp; monthSumExp[r.ts.getMonth()]+=r.exp; }
+  mkBarChart('chart-month-import', MONTHS, monthSumImp, '#f97316');
+  mkBarChart('chart-month-export', MONTHS, monthSumExp, '#22d3ee');
+
+  const hmSumImp=Array.from({length:12},()=>new Array(24).fill(0));
+  const hmSumExp=Array.from({length:12},()=>new Array(24).fill(0));
+  const hmCnt=Array.from({length:12},()=>new Array(24).fill(0));
+  for (const r of intervals) { const m=r.ts.getMonth(),h=r.ts.getHours(); hmSumImp[m][h]+=r.imp; hmSumExp[m][h]+=r.exp; hmCnt[m][h]++; }
+  heatmapData = {
+    imp: hmSumImp.map((row,m)=>row.map((v,h)=>hmCnt[m][h]?v/hmCnt[m][h]*4:0)),
+    exp: hmSumExp.map((row,m)=>row.map((v,h)=>hmCnt[m][h]?v/hmCnt[m][h]*4:0)),
+  };
+  renderHeatmap('import');
+  document.getElementById('dashboard').style.display = 'block';
+  document.querySelectorAll('.tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('panel-'+btn.dataset.panel).classList.add('active');
+    });
+  });
+}
+
+// ── Stats ─────────────────────────────────────────────────────────────────
+
+function percentile(sorted, p) {
+  if (!sorted.length) return 0;
+  const idx=(p/100)*(sorted.length-1), lo=Math.floor(idx), hi=Math.ceil(idx);
+  return sorted[lo]+(sorted[hi]-sorted[lo])*(idx-lo);
+}
+
+function buildStats(intervals, totImp, totExp) {
+  const dayImp={}, dayExp={};
+  for (const r of intervals) { const d=r.ts.toDateString(); dayImp[d]=(dayImp[d]||0)+r.imp; dayExp[d]=(dayExp[d]||0)+r.exp; }
+  const dailyImp=Object.values(dayImp).sort((a,b)=>a-b);
+  const dailyExp=Object.values(dayExp).sort((a,b)=>a-b);
+  let peakImpVal=0, peakImpTs=null, peakExpVal=0, peakExpTs=null;
+  for (const r of intervals) {
+    if (r.imp>peakImpVal){peakImpVal=r.imp;peakImpTs=r.ts;}
+    if (r.exp>peakExpVal){peakExpVal=r.exp;peakExpTs=r.ts;}
+  }
+  const avgImp=totImp/dailyImp.length, avgExp=totExp/dailyExp.length;
+  const fmtDate=ts=>ts?ts.toLocaleString('nl-NL',{dateStyle:'medium',timeStyle:'short'}):'—';
+  const fmtDay=ts=>ts?new Date(ts).toLocaleDateString('nl-NL',{dateStyle:'medium'}):'—';
+  const minImpDay=fmtDay(Object.keys(dayImp).find(d=>dayImp[d]===dailyImp[0]));
+  const maxImpDay=fmtDay(Object.keys(dayImp).find(d=>dayImp[d]===dailyImp[dailyImp.length-1]));
+  const minExpDay=fmtDay(Object.keys(dayExp).find(d=>dayExp[d]===dailyExp[0]));
+  const maxExpDay=fmtDay(Object.keys(dayExp).find(d=>dayExp[d]===dailyExp[dailyExp.length-1]));
+  document.getElementById('stats-section').innerHTML = `
+    <h2>Dagelijkse statistieken <span class="badge badge-imp">Afname</span><span class="badge badge-exp">Teruglevering</span></h2>
+    <div class="stats-grid">
+      <div class="stats-card">
+        <div class="stats-card-header import">Afname — dagelijks kWh</div>
+        <table class="stats-table"><thead><tr><th>Maatstaf</th><th>Waarde</th><th>Datum</th></tr></thead><tbody>
+          <tr><td>Minimum</td><td class="stat-val">${dailyImp[0].toFixed(2)} kWh</td><td class="stat-sub">${minImpDay}</td></tr>
+          <tr><td>Maximum</td><td class="stat-val">${dailyImp[dailyImp.length-1].toFixed(2)} kWh</td><td class="stat-sub">${maxImpDay}</td></tr>
+          <tr><td>Gemiddelde</td><td class="stat-val">${avgImp.toFixed(2)} kWh</td><td></td></tr>
+          <tr><td>P90 (90e percentiel)</td><td class="stat-val">${percentile(dailyImp,90).toFixed(2)} kWh</td><td></td></tr>
+          <tr><td>Piekinterval</td><td class="stat-val">${(peakImpVal*1000).toFixed(0)} Wh</td><td class="stat-sub">${fmtDate(peakImpTs)}</td></tr>
+        </tbody></table>
+      </div>
+      <div class="stats-card">
+        <div class="stats-card-header export">Teruglevering — dagelijks kWh</div>
+        <table class="stats-table"><thead><tr><th>Maatstaf</th><th>Waarde</th><th>Datum</th></tr></thead><tbody>
+          <tr><td>Minimum</td><td class="stat-val">${dailyExp[0].toFixed(2)} kWh</td><td class="stat-sub">${minExpDay}</td></tr>
+          <tr><td>Maximum</td><td class="stat-val">${dailyExp[dailyExp.length-1].toFixed(2)} kWh</td><td class="stat-sub">${maxExpDay}</td></tr>
+          <tr><td>Gemiddelde</td><td class="stat-val">${avgExp.toFixed(2)} kWh</td><td></td></tr>
+          <tr><td>P90 (90e percentiel)</td><td class="stat-val">${percentile(dailyExp,90).toFixed(2)} kWh</td><td></td></tr>
+          <tr><td>Piekinterval</td><td class="stat-val">${(peakExpVal*1000).toFixed(0)} Wh</td><td class="stat-sub">${fmtDate(peakExpTs)}</td></tr>
+        </tbody></table>
+      </div>
+    </div>`;
+}
+
+// ── Period stats ──────────────────────────────────────────────────────────
+
+let _periodIntervals = null;
+const PERIOD_DEFS = [
+  { id:'p0', label:'Avond / nacht', color:'#a78bfa' },
+  { id:'p1', label:'Ochtend',       color:'#f97316' },
+  { id:'p2', label:'Dag',           color:'#22d3ee' },
+];
+
+function parseHHMM(val) { const [h,m]=val.split(':').map(Number); return h+m/60; }
+function inPeriod(hour, start, end) { const h=hour+0.5; return start<end ? h>=start&&h<end : h>=start||h<end; }
+
+function buildPeriodStats(intervals) {
+  _periodIntervals = intervals;
+  const periods = PERIOD_DEFS.map(def=>({ ...def, start:parseHHMM(document.getElementById(def.id+'-start').value), end:parseHHMM(document.getElementById(def.id+'-end').value) }));
+  const dayImp={}, dayExp={};
+  let peakImp=[{val:0,ts:null},{val:0,ts:null},{val:0,ts:null}];
+  let peakExp=[{val:0,ts:null},{val:0,ts:null},{val:0,ts:null}];
+  for (const r of intervals) {
+    const h=r.ts.getHours(), d=r.ts.toDateString();
+    for (let i=0;i<periods.length;i++) {
+      if (!inPeriod(h,periods[i].start,periods[i].end)) continue;
+      const k=d+'|'+i;
+      dayImp[k]=(dayImp[k]||0)+r.imp; dayExp[k]=(dayExp[k]||0)+r.exp;
+      if (r.imp>peakImp[i].val) peakImp[i]={val:r.imp,ts:r.ts};
+      if (r.exp>peakExp[i].val) peakExp[i]={val:r.exp,ts:r.ts};
+    }
+  }
+  const byPeriod=periods.map((_,i)=>{
+    const imp=[],exp=[];
+    for (const k of Object.keys(dayImp)) { if (k.endsWith('|'+i)){imp.push(dayImp[k]);exp.push(dayExp[k]);} }
+    imp.sort((a,b)=>a-b); exp.sort((a,b)=>a-b); return {imp,exp};
+  });
+  const fmtTs=ts=>ts?ts.toLocaleString('nl-NL',{dateStyle:'short',timeStyle:'short'}):'—';
+  const fmtTime=dec=>{ const h=Math.floor(dec),m=Math.round((dec%1)*60); return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0'); };
+  const sum=arr=>arr.reduce((s,v)=>s+v,0), avg=arr=>arr.length?sum(arr)/arr.length:0;
+  document.getElementById('period-cards').innerHTML = periods.map((p,i)=>{
+    const {imp,exp}=byPeriod[i]; if (!imp.length) return '';
+    const rows=[
+      ['Totaal (periode)', `${sum(imp).toFixed(1)} kWh`,`${sum(exp).toFixed(1)} kWh`],
+      ['Minimum (per dag)',`${imp[0].toFixed(2)} kWh`,`${exp[0].toFixed(2)} kWh`],
+      ['Maximum (per dag)',`${imp[imp.length-1].toFixed(2)} kWh`,`${exp[exp.length-1].toFixed(2)} kWh`],
+      ['Gemiddelde (per dag)',`${avg(imp).toFixed(2)} kWh`,`${avg(exp).toFixed(2)} kWh`],
+      ['P90 (per dag)',`${percentile(imp,90).toFixed(2)} kWh`,`${percentile(exp,90).toFixed(2)} kWh`],
+      ['Piekinterval afname',`${(peakImp[i].val*1000).toFixed(0)} Wh<br><span style="font-size:0.7rem;color:#6b7a99">${fmtTs(peakImp[i].ts)}</span>`,''],
+      ['Piekinterval teruglevering','',`${(peakExp[i].val*1000).toFixed(0)} Wh<br><span style="font-size:0.7rem;color:#6b7a99">${fmtTs(peakExp[i].ts)}</span>`],
+    ];
+    return `<div class="period-card">
+      <div class="period-card-header"><div class="dot" style="background:${p.color}"></div>${p.label}<span class="time-range">${fmtTime(p.start)} – ${fmtTime(p.end)}</span></div>
+      <table class="period-stat-table"><thead><tr><th>Maatstaf</th><th class="imp">Afname</th><th class="exp">Teruglevering</th></tr></thead>
+      <tbody>${rows.map(([l,iv,ev])=>`<tr><td>${l}</td><td class="imp">${iv}</td><td class="exp">${ev}</td></tr>`).join('')}</tbody>
+      </table></div>`;
+  }).join('');
+}
+
+// ── Data table ────────────────────────────────────────────────────────────
+
+function buildDataTable() {
+  const tbody=document.getElementById('data-tbody');
+  const fragment=document.createDocumentFragment();
+  for (const r of rawRows.slice(0,1000)) {
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${esc(r.time)}</td><td class="imp-val">${esc(r.t1imp)}</td><td class="imp-val">${esc(r.t2imp)}</td><td class="exp-val">${esc(r.t1exp)}</td><td class="exp-val">${esc(r.t2exp)}</td><td>${esc(r.l1)}</td><td>${esc(r.l2)}</td><td>${esc(r.l3)}</td>`;
+    fragment.appendChild(tr);
+  }
+  tbody.innerHTML=''; tbody.appendChild(fragment);
+}
+
+// ── Chart factory ─────────────────────────────────────────────────────────
+
+function mkBarChart(id, labels, data, color) {
+  new Chart(document.getElementById(id), {
+    type: 'bar',
+    data: { labels, datasets: [{ data, backgroundColor:color+'bb', borderColor:color, borderWidth:1, borderRadius:4 }] },
+    options: {
+      responsive: true,
+      plugins: { legend:{display:false}, tooltip:{callbacks:{label:ctx=>` ${ctx.parsed.y.toFixed(3)} kWh`}} },
+      scales: {
+        x: { ticks:{color:'#6b7a99',font:{size:11}}, grid:{color:'rgba(28,38,64,0.8)'} },
+        y: { ticks:{color:'#6b7a99',font:{size:11}}, grid:{color:'rgba(28,38,64,0.8)'}, beginAtZero:true }
+      }
+    }
+  });
+}
+
+// ── Heatmap ───────────────────────────────────────────────────────────────
+
+function renderHeatmap(mode) {
+  if (!heatmapData) return;
+  document.getElementById('hm-import-btn').className='hm-btn'+(mode==='import'?' active':'');
+  document.getElementById('hm-export-btn').className='hm-btn'+(mode==='export'?' active export':'');
+  const matrix=heatmapData[mode==='import'?'imp':'exp'];
+  const maxVal=Math.max(...matrix.flat());
+  const [bR,bG,bB]=mode==='import'?[249,115,22]:[34,211,238];
+  let html='<table id="heatmap-table"><thead><tr><th></th>';
+  for (let h=0;h<24;h++) html+=`<th>${String(h).padStart(2,'0')}</th>`;
+  html+='</tr></thead><tbody>';
+  for (let m=0;m<12;m++) {
+    html+=`<tr><th>${MONTHS[m]}</th>`;
+    for (let h=0;h<24;h++) {
+      const v=matrix[m][h], intensity=maxVal>0?v/maxVal:0;
+      const alpha=0.05+intensity*0.95;
+      html+=`<td class="hm-cell" style="background:rgba(${bR},${bG},${bB},${alpha.toFixed(2)});color:${intensity>0.55?'#fff':'#6b7a99'}" title="${MONTHS[m]} ${String(h).padStart(2,'0')}:00 — ${v.toFixed(3)} kWh">${v>0?v.toFixed(2):''}</td>`;
+    }
+    html+='</tr>';
+  }
+  html+='</tbody></table>';
+  document.getElementById('heatmap-wrap').innerHTML=html;
+}
+
+// ── Auto-load ─────────────────────────────────────────────────────────────
+
+(async () => {
+  try {
+    const filename = 'P1e-2025-1-1-2026-1-1.csv';
+    const res = await fetch(filename);
+    if (res.ok) {
+      const text = await res.text();
+      dropZone.style.display = 'none';
+      document.getElementById('loading').style.display = 'block';
+      document.getElementById('active-file-name').textContent = filename;
+      document.getElementById('active-file').style.display = 'inline-flex';
+      document.getElementById('upload-btn').style.display = 'inline-flex';
+      const data = parseCSV(text);
+      buildDashboard(data);
+      document.getElementById('loading').style.display = 'none';
+    }
+  } catch(_) {}
+})();
+</script>
+</body>
+</html>

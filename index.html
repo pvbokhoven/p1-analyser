@@ -535,7 +535,7 @@
     <button class="tab" data-panel="monthly">Per maand</button>
     <button class="tab" data-panel="heatmap">Heatmap</button>
     <button class="tab" data-panel="periodes">Periodes</button>
-    <button class="tab" data-panel="data">Gegevens</button>
+    <button class="tab" data-panel="data">Datavoorbeeld</button>
   </div>
 
   <div id="panel-hourly" class="panel active">
@@ -591,16 +591,19 @@
 
   <div id="panel-data" class="panel">
     <div class="chart-card">
-      <h3>Eerste 1000 meetintervallen (berekende delta's per 15 min)</h3>
+      <h3>Eerste 1000 rijen van het bestand</h3>
       <div style="overflow-x:auto">
         <table id="data-table" class="data-table">
           <thead>
             <tr>
-              <th>Tijdstip</th>
-              <th>Afname (kWh)</th>
-              <th>Teruglevering (kWh)</th>
-              <th>Afname (W)</th>
-              <th>Teruglevering (W)</th>
+              <th>time</th>
+              <th class="imp-val">Import T1 kWh</th>
+              <th class="imp-val">Import T2 kWh</th>
+              <th class="exp-val">Export T1 kWh</th>
+              <th class="exp-val">Export T2 kWh</th>
+              <th>L1 max W</th>
+              <th>L2 max W</th>
+              <th>L3 max W</th>
             </tr>
           </thead>
           <tbody id="data-tbody"></tbody>
@@ -625,6 +628,7 @@
 const MONTHS = ['Jan','Feb','Mrt','Apr','Mei','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
 const DAYS   = ['Zo','Ma','Di','Wo','Do','Vr','Za'];
 let heatmapData = null;
+let rawRows = [];
 
 // ── File handling ──────────────────────────────────────────────────────────
 
@@ -735,12 +739,14 @@ function parseCSV(text) {
     );
   }
 
-  // Map column indices by name
+  // Map column indices by name (optional columns get -1 if absent)
   const idx = name => headers.indexOf(name);
-  const iTime = idx('time');
+  const iTime  = idx('time');
   const iT1imp = idx('Import T1 kWh'), iT2imp = idx('Import T2 kWh');
   const iT1exp = idx('Export T1 kWh'), iT2exp = idx('Export T2 kWh');
+  const iL1    = idx('L1 max W'), iL2 = idx('L2 max W'), iL3 = idx('L3 max W');
 
+  rawRows = [];
   const rows = [];
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i].trim();
@@ -757,7 +763,15 @@ function parseCSV(text) {
     const t2exp = parseFloat(cols[iT2exp]);
     if ([t1imp, t2imp, t1exp, t2exp].some(isNaN)) continue;
 
-    rows.push({ ts, imp: t1imp + t2imp, exp: t1exp + t2exp });
+    rawRows.push({
+      time: cols[iTime].trim(),
+      t1imp: t1imp.toFixed(3), t2imp: t2imp.toFixed(3),
+      t1exp: t1exp.toFixed(3), t2exp: t2exp.toFixed(3),
+      l1: iL1 >= 0 ? (cols[iL1]?.trim() ?? '') : '',
+      l2: iL2 >= 0 ? (cols[iL2]?.trim() ?? '') : '',
+      l3: iL3 >= 0 ? (cols[iL3]?.trim() ?? '') : '',
+    });
+    rows.push({ ts, t1imp, t2imp, t1exp, t2exp, imp: t1imp + t2imp, exp: t1exp + t2exp });
   }
 
   if (rows.length < 2) throw new Error('Onvoldoende geldige gegevensrijen gevonden na het verwerken van het bestand.');
@@ -766,9 +780,15 @@ function parseCSV(text) {
   const intervals = [];
   for (let i = 1; i < rows.length; i++) {
     const prev = rows[i - 1], cur = rows[i];
-    const dImp = Math.max(0, cur.imp - prev.imp);
-    const dExp = Math.max(0, cur.exp - prev.exp);
-    intervals.push({ ts: cur.ts, imp: dImp, exp: dExp });
+    intervals.push({
+      ts:    cur.ts,
+      imp:   Math.max(0, cur.imp   - prev.imp),
+      exp:   Math.max(0, cur.exp   - prev.exp),
+      impT1: Math.max(0, cur.t1imp - prev.t1imp),
+      impT2: Math.max(0, cur.t2imp - prev.t2imp),
+      expT1: Math.max(0, cur.t1exp - prev.t1exp),
+      expT2: Math.max(0, cur.t2exp - prev.t2exp),
+    });
   }
   return intervals;
 }
@@ -811,7 +831,7 @@ function buildDashboard(intervals) {
   buildStats(intervals, totImp, totExp);
 
   // ── Data preview
-  buildDataTable(intervals);
+  buildDataTable();
 
   // ── Period stats
   buildPeriodStats(intervals);
@@ -1068,21 +1088,20 @@ function buildPeriodStats(intervals) {
 
 // ── Data table ────────────────────────────────────────────────────────────
 
-function buildDataTable(intervals) {
-  const rows = intervals.slice(0, 1000);
+function buildDataTable() {
   const tbody = document.getElementById('data-tbody');
-  // Build rows via DOM to avoid any XSS from computed values
   const fragment = document.createDocumentFragment();
-  for (const r of rows) {
+  for (const r of rawRows.slice(0, 1000)) {
     const tr = document.createElement('tr');
-    const ts = r.ts.toLocaleString('nl-NL', { dateStyle: 'short', timeStyle: 'short' });
-    // All values are numbers/dates — safe, but use esc() defensively
     tr.innerHTML = `
-      <td>${esc(ts)}</td>
-      <td class="imp-val">${r.imp.toFixed(3)}</td>
-      <td class="exp-val">${r.exp.toFixed(3)}</td>
-      <td class="imp-val">${(r.imp * 4000).toFixed(0)}</td>
-      <td class="exp-val">${(r.exp * 4000).toFixed(0)}</td>`;
+      <td>${esc(r.time)}</td>
+      <td class="imp-val">${esc(r.t1imp)}</td>
+      <td class="imp-val">${esc(r.t2imp)}</td>
+      <td class="exp-val">${esc(r.t1exp)}</td>
+      <td class="exp-val">${esc(r.t2exp)}</td>
+      <td>${esc(r.l1)}</td>
+      <td>${esc(r.l2)}</td>
+      <td>${esc(r.l3)}</td>`;
     fragment.appendChild(tr);
   }
   tbody.innerHTML = '';
