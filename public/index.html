@@ -139,6 +139,99 @@
     }
     #upload-file-input { display: none; }
 
+    /* EV analyse */
+    .ev-toggle-bar {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem 1.5rem;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+    }
+    .ev-toggle-bar .ev-label {
+      display: flex; align-items: center; gap: 0.6rem;
+      font-weight: 600; font-size: 0.9rem;
+    }
+    .ev-toggle-bar .ev-label svg { color: #34d399; }
+    .toggle-switch {
+      position: relative; width: 44px; height: 24px; flex-shrink: 0;
+    }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider {
+      position: absolute; inset: 0; cursor: pointer;
+      background: var(--border2); border-radius: 24px;
+      transition: background 0.2s;
+    }
+    .toggle-slider::before {
+      content: ''; position: absolute;
+      width: 18px; height: 18px; left: 3px; bottom: 3px;
+      background: white; border-radius: 50%;
+      transition: transform 0.2s;
+    }
+    .toggle-switch input:checked + .toggle-slider { background: #34d399; }
+    .toggle-switch input:checked + .toggle-slider::before { transform: translateX(20px); }
+    .ev-config {
+      display: none;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+      flex: 1;
+    }
+    .ev-config.visible { display: flex; }
+    .ev-config label { font-size: 0.8rem; color: var(--muted); display: flex; align-items: center; gap: 0.4rem; }
+    .ev-config input[type=number] {
+      width: 90px; background: var(--surface); border: 1px solid var(--border2);
+      border-radius: 6px; color: var(--text); font-size: 0.85rem;
+      padding: 0.3rem 0.6rem;
+    }
+    .ev-config .ev-hint { font-size: 0.72rem; color: var(--muted); font-style: italic; }
+    .btn-apply {
+      padding: 0.4rem 1rem; border-radius: 6px;
+      background: rgba(52,211,153,0.15); border: 1px solid rgba(52,211,153,0.35);
+      color: #34d399; font-size: 0.8rem; font-weight: 600; cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-apply:hover { background: rgba(52,211,153,0.25); }
+
+    .ev-kpi-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+    }
+    .ev-kpi {
+      background: var(--card); border: 1px solid var(--border);
+      border-left: 3px solid #34d399;
+      border-radius: 10px; padding: 1rem 1.25rem;
+    }
+    .ev-kpi .label { font-size: 0.68rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .ev-kpi .value { font-size: 1.4rem; font-weight: 700; color: #34d399; margin-top: 0.3rem; }
+    .ev-kpi .sub   { font-size: 0.7rem; color: var(--muted); margin-top: 0.2rem; }
+
+    .ev-sessions-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; overflow: hidden; margin-bottom: 1.5rem;
+    }
+    .ev-sessions-card h3 {
+      font-size: 0.72rem; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.06em;
+      padding: 1rem 1.5rem 0.75rem; border-bottom: 1px solid var(--border);
+    }
+    .ev-session-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+    .ev-session-table th {
+      padding: 0.45rem 1rem; text-align: left; color: var(--muted);
+      font-weight: 500; background: var(--surface); border-bottom: 1px solid var(--border);
+    }
+    .ev-session-table th:not(:first-child) { text-align: right; }
+    .ev-session-table td { padding: 0.4rem 1rem; border-bottom: 1px solid rgba(28,38,64,0.5); }
+    .ev-session-table td:not(:first-child) { text-align: right; }
+    .ev-session-table tr:last-child td { border-bottom: none; }
+    .ev-session-table tbody tr:hover { background: rgba(28,38,64,0.6); }
+    .ev-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #34d399; margin-right: 0.4rem; }
+
     /* Klikbare datums */
     .date-link {
       color: var(--acc);
@@ -710,6 +803,7 @@
     <button class="tab" data-panel="heatmap">Heatmap</button>
     <button class="tab" data-panel="periodes">Periodes</button>
     <button class="tab" data-panel="data">Datavoorbeeld</button>
+    <button class="tab" data-panel="ev">⚡ EV Analyse</button>
   </div>
 
   <div id="panel-hourly" class="panel active">
@@ -774,6 +868,32 @@
       </div>
     </div>
     <div class="period-cards" id="period-cards"></div>
+  </div>
+
+  <div id="panel-ev" class="panel">
+    <div class="ev-toggle-bar">
+      <div class="ev-label">
+        <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+        EV Analyse
+      </div>
+      <label class="toggle-switch">
+        <input type="checkbox" id="ev-toggle" onchange="toggleEV(this.checked)"/>
+        <span class="toggle-slider"></span>
+      </label>
+      <div class="ev-config" id="ev-config">
+        <label>
+          Laaddrempel
+          <input type="number" id="ev-threshold" value="2500" min="500" max="22000" step="100" /> W
+        </label>
+        <label>
+          Min. sessieduur
+          <input type="number" id="ev-min-dur" value="30" min="15" max="180" step="15" /> min
+        </label>
+        <button class="btn-apply" onclick="applyEVSettings()">Toepassen</button>
+        <span class="ev-hint">Alles boven de drempel én langer dan de min. duur telt als EV laden</span>
+      </div>
+    </div>
+    <div id="ev-content"></div>
   </div>
 
   <div id="panel-data" class="panel">
@@ -1229,6 +1349,142 @@ function renderHeatmap(mode) {
   }
   html+='</tbody></table>';
   document.getElementById('heatmap-wrap').innerHTML=html;
+}
+
+// ── EV Analyse ────────────────────────────────────────────────────────────
+
+let evEnabled = false;
+let evThresholdW = 2500;
+let evMinDurMin = 30;
+
+function toggleEV(on) {
+  evEnabled = on;
+  document.getElementById('ev-config').classList.toggle('visible', on);
+  if (on) applyEVSettings();
+  else document.getElementById('ev-content').innerHTML = '<p style="color:var(--muted);padding:1rem 0;font-size:0.875rem">Zet de schakelaar aan om EV-analyse te activeren.</p>';
+}
+
+function applyEVSettings() {
+  evThresholdW  = parseInt(document.getElementById('ev-threshold').value) || 2500;
+  evMinDurMin   = parseInt(document.getElementById('ev-min-dur').value)   || 30;
+  buildEVContent(allIntervals);
+}
+
+function intervalWatt(r) { return r.imp * 4000; } // kWh/15min → W
+
+function detectEVSessions(intervals) {
+  const minIntervals = Math.ceil(evMinDurMin / 15);
+  const sessions = [];
+  let i = 0;
+  while (i < intervals.length) {
+    if (intervalWatt(intervals[i]) >= evThresholdW) {
+      let j = i;
+      while (j < intervals.length && intervalWatt(intervals[j]) >= evThresholdW) j++;
+      if (j - i >= minIntervals) {
+        const slice = intervals.slice(i, j);
+        sessions.push({
+          start:    slice[0].ts,
+          end:      slice[slice.length - 1].ts,
+          duration: (j - i) * 15,           // minutes
+          kWh:      slice.reduce((s,r) => s + r.imp, 0),
+          peakW:    Math.max(...slice.map(r => intervalWatt(r))),
+          indices:  { from: i, to: j },
+        });
+      }
+      i = j;
+    } else { i++; }
+  }
+  return sessions;
+}
+
+function buildEVContent(intervals) {
+  if (!intervals.length) return;
+  const sessions = detectEVSessions(intervals);
+
+  // Mark EV intervals
+  const evSet = new Set();
+  for (const s of sessions) for (let i = s.indices.from; i < s.indices.to; i++) evSet.add(i);
+
+  const evKWh   = intervals.reduce((sum, r, i) => evSet.has(i) ? sum + r.imp : sum, 0);
+  const totKWh  = intervals.reduce((sum, r) => sum + r.imp, 0);
+  const baseKWh = totKWh - evKWh;
+  const evPct   = totKWh > 0 ? (evKWh / totKWh * 100) : 0;
+  const avgSession = sessions.length ? evKWh / sessions.length : 0;
+
+  // KPI row
+  let html = `<div class="ev-kpi-row">
+    <div class="ev-kpi"><div class="label">EV verbruik</div><div class="value">${evKWh.toFixed(0)} <small style="font-size:1rem">kWh</small></div><div class="sub">${evPct.toFixed(1)}% van totale afname</div></div>
+    <div class="ev-kpi"><div class="label">Basisverbruik (zonder EV)</div><div class="value" style="color:var(--imp)">${baseKWh.toFixed(0)} <small style="font-size:1rem">kWh</small></div></div>
+    <div class="ev-kpi"><div class="label">Laadsessies</div><div class="value">${sessions.length}</div></div>
+    <div class="ev-kpi"><div class="label">Gem. per sessie</div><div class="value">${avgSession.toFixed(1)} <small style="font-size:1rem">kWh</small></div></div>
+  </div>`;
+
+  // Sessions table
+  const fmtTs = ts => ts.toLocaleString('nl-NL', { dateStyle: 'short', timeStyle: 'short' });
+  const sorted = [...sessions].sort((a, b) => b.start - a.start);
+  html += `<div class="ev-sessions-card">
+    <h3>Laadsessies (${sessions.length}) — gesorteerd op datum</h3>
+    <div style="overflow-x:auto; max-height:420px; overflow-y:auto">
+    <table class="ev-session-table">
+      <thead><tr><th>Start</th><th>Einde</th><th>Duur</th><th>Geladen</th><th>Piek</th></tr></thead>
+      <tbody>
+        ${sorted.map(s => `<tr>
+          <td><span class="ev-dot"></span><span class="date-link" onclick="showDayDetail('${s.start.toDateString()}')">${fmtTs(s.start)}</span></td>
+          <td>${fmtTs(s.end)}</td>
+          <td>${s.duration >= 60 ? Math.floor(s.duration/60)+'u '+(s.duration%60)+'min' : s.duration+'min'}</td>
+          <td style="color:#34d399;font-weight:600">${s.kWh.toFixed(2)} kWh</td>
+          <td>${s.peakW.toFixed(0)} W</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+    </div>
+  </div>`;
+
+  // Uur-grafiek met EV-splitsing
+  html += `<div class="chart-grid">
+    <div class="chart-card"><h3>Afname per uur — normaal vs. EV</h3><canvas id="chart-ev-hour"></canvas></div>
+    <div class="chart-card"><h3>EV laden per maand (kWh)</h3><canvas id="chart-ev-month"></canvas></div>
+  </div>`;
+
+  document.getElementById('ev-content').innerHTML = html;
+
+  // Hourly stacked chart
+  const hourBase = new Array(24).fill(0), hourEV = new Array(24).fill(0), hourCnt = new Array(24).fill(0);
+  intervals.forEach((r, i) => {
+    const h = r.ts.getHours();
+    hourCnt[h]++;
+    if (evSet.has(i)) hourEV[h]  += r.imp;
+    else              hourBase[h] += r.imp;
+  });
+  const labels = [...Array(24).keys()].map(h => String(h).padStart(2,'0') + ':00');
+  const toAvg  = (arr) => arr.map((v, h) => hourCnt[h] ? v / hourCnt[h] * 4 : 0);
+
+  if (chartInstances['chart-ev-hour']) chartInstances['chart-ev-hour'].destroy();
+  chartInstances['chart-ev-hour'] = new Chart(document.getElementById('chart-ev-hour'), {
+    type: 'bar',
+    data: { labels, datasets: [
+      { label: 'Normaal', data: toAvg(hourBase), backgroundColor: '#f9731688', borderColor: '#f97316', borderWidth:1, borderRadius:3, stack:'s' },
+      { label: 'EV laden', data: toAvg(hourEV),  backgroundColor: '#34d39988', borderColor: '#34d399', borderWidth:1, borderRadius:3, stack:'s' },
+    ]},
+    options: { responsive:true, scales: {
+      x: { stacked:true, ticks:{color:'#6b7a99',font:{size:11}}, grid:{color:'rgba(28,38,64,0.8)'} },
+      y: { stacked:true, ticks:{color:'#6b7a99',font:{size:11}}, grid:{color:'rgba(28,38,64,0.8)'}, beginAtZero:true,
+           title:{display:true,text:'kWh (gem.)',color:'#6b7a99',font:{size:10}} }
+    }, plugins:{legend:{labels:{color:'#6b7a99',font:{size:11},boxWidth:12}},
+      tooltip:{callbacks:{label:ctx=>` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(3)} kWh`}}} }
+  });
+
+  // Monthly EV chart
+  const monthEV = new Array(12).fill(0);
+  intervals.forEach((r, i) => { if (evSet.has(i)) monthEV[r.ts.getMonth()] += r.imp; });
+  if (chartInstances['chart-ev-month']) chartInstances['chart-ev-month'].destroy();
+  chartInstances['chart-ev-month'] = new Chart(document.getElementById('chart-ev-month'), {
+    type: 'bar',
+    data: { labels: MONTHS, datasets: [{ data: monthEV, backgroundColor:'#34d39988', borderColor:'#34d399', borderWidth:1, borderRadius:4 }]},
+    options: { responsive:true, plugins:{legend:{display:false}, tooltip:{callbacks:{label:ctx=>` ${ctx.parsed.y.toFixed(1)} kWh`}}},
+      scales:{ x:{ticks:{color:'#6b7a99',font:{size:11}},grid:{color:'rgba(28,38,64,0.8)'}},
+               y:{ticks:{color:'#6b7a99',font:{size:11}},grid:{color:'rgba(28,38,64,0.8)'},beginAtZero:true} } }
+  });
 }
 
 // ── Day detail ────────────────────────────────────────────────────────────
