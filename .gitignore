@@ -1,0 +1,5 @@
+# Echte meetdata — nooit inchecken
+P1e-*.csv
+
+# Voorbeeldbestand mag wel mee (geen echte data)
+!voorbeeld-data.csv
