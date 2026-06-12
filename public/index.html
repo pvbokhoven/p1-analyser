@@ -139,6 +139,52 @@
     }
     #upload-file-input { display: none; }
 
+    /* Info / over */
+    #info-btn {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.5rem 1rem;
+      background: transparent;
+      border: 1px solid var(--border2);
+      border-radius: 8px;
+      color: var(--muted);
+      font-size: 0.825rem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    #info-btn:hover { border-color: var(--acc); color: var(--acc); }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 0.75rem;
+      margin: 1.5rem 0 0.5rem;
+      text-align: left;
+    }
+    .feature-item {
+      display: flex;
+      gap: 0.75rem;
+      align-items: flex-start;
+    }
+    .feature-icon {
+      width: 32px; height: 32px; flex-shrink: 0;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      margin-top: 0.1rem;
+    }
+    .feature-item h4 { font-size: 0.8rem; font-weight: 600; color: var(--text); margin-bottom: 0.2rem; }
+    .feature-item p  { font-size: 0.72rem; color: var(--muted); line-height: 1.4; }
+
+    .about-privacy {
+      display: flex; align-items: center; gap: 0.5rem;
+      margin-top: 1rem; padding-top: 1rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.75rem; color: var(--muted);
+    }
+    .about-privacy svg { color: #34d399; flex-shrink: 0; }
+
     /* EV analyse */
     .ev-toggle-bar {
       display: flex;
@@ -663,12 +709,37 @@
     </div>
   </div>
 
+  <button id="info-btn" onclick="document.getElementById('info-modal').classList.add('open')">
+    <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    Over
+  </button>
   <button id="upload-btn" onclick="document.getElementById('upload-modal').classList.add('open')">
     <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/></svg>
     Ander bestand
   </button>
   <input type="file" id="upload-file-input" accept=".csv" />
 </header>
+
+<!-- ── Info modal ────────────────────────────────────────────────────── -->
+<div id="info-modal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-header">
+      <h2>
+        <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        Over P1 Energie Analyser
+      </h2>
+      <button class="modal-close" onclick="document.getElementById('info-modal').classList.remove('open')">✕</button>
+    </div>
+    <p style="font-size:0.875rem;color:var(--muted);line-height:1.6">
+      Upload de CSV-export van je slimme meter en krijg direct inzicht in je energieverbruik en -teruglevering. Alles wordt lokaal in je browser verwerkt — er worden geen gegevens verstuurd.
+    </p>
+    <div id="info-modal-features"></div>
+    <div class="about-privacy">
+      <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+      Privacy — alle verwerking vindt lokaal in je browser plaats. Er worden geen gegevens opgeslagen of verstuurd.
+    </div>
+  </div>
+</div>
 
 <!-- ── Dag detail modal ───────────────────────────────────────────────── -->
 <div id="day-modal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
@@ -768,7 +839,10 @@
     <button onclick="loadSampleData()" style="background:none;border:none;color:var(--acc);cursor:pointer;font-size:inherit;text-decoration:underline;padding:0">Gebruik de voorbeelddata</button>
   </p>
   <input type="file" id="file-input" accept=".csv" />
-  <div class="upload-requirements">
+
+  <div id="homepage-features" style="margin-top:1.75rem;text-align:left"></div>
+
+  <div class="upload-requirements" style="margin-top:1.25rem">
     <p><strong>Vereiste kolomnamen</strong> (eerste rij van het CSV-bestand):</p>
     <div class="col-list">
       <div class="col-item"><span class="col-name">time</span><span class="col-desc">Tijdstip van meting (bijv. 2025-01-01 00:15)</span></div>
@@ -934,6 +1008,53 @@
 </div>
 
 <script>
+// ── App features ──────────────────────────────────────────────────────────
+
+const APP_FEATURES = [
+  { color:'rgba(249,115,22,0.15)', stroke:'#f97316',
+    icon:'<path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>',
+    title:'Grafieken per uur, dag & maand',
+    desc:'Gemiddeld en totaal verbruik uitgesplitst per uur van de dag, weekdag en kalendermaand.' },
+  { color:'rgba(34,211,238,0.15)', stroke:'#22d3ee',
+    icon:'<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>',
+    title:'Heatmap',
+    desc:'Uur van de dag × maand in één kleurenkaart — zie in één oogopslag wanneer je het meest verbruikt of teruglevert.' },
+  { color:'rgba(167,139,250,0.15)', stroke:'#a78bfa',
+    icon:'<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+    title:'Tijdsperiodes',
+    desc:'Stel zelf tijdvakken in (bijv. avond/nacht, ochtend, dag) en zie statistieken per periode — handig voor thuisbatterij-analyse.' },
+  { color:'rgba(79,142,247,0.15)', stroke:'#4f8ef7',
+    icon:'<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
+    title:'Dagdetail',
+    desc:'Klik op een datum in de statistieken of kies een dag in de kalender — bekijk het 15-minuut verbruiksprofiel van die dag.' },
+  { color:'rgba(52,211,153,0.15)', stroke:'#34d399',
+    icon:'<path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>',
+    title:'EV Analyse',
+    desc:'Detecteer automatisch laadsessies van je elektrische auto op basis van een drempelwaarde. Sluit EV-verbruik uit om je echte huishoudverbruik te zien.' },
+  { color:'rgba(251,191,36,0.15)', stroke:'#fbbf24',
+    icon:'<path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>',
+    title:'Statistieken',
+    desc:'Min, max, gemiddelde, P90 en piekinterval per dag — voor zowel afname als teruglevering.' },
+];
+
+function renderFeatures(targetId) {
+  const html = `<div class="features-grid">
+    ${APP_FEATURES.map(f => `
+      <div class="feature-item">
+        <div class="feature-icon" style="background:${f.color}">
+          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="${f.stroke}" stroke-width="2">${f.icon}</svg>
+        </div>
+        <div><h4>${f.title}</h4><p>${f.desc}</p></div>
+      </div>`).join('')}
+  </div>`;
+  const el = document.getElementById(targetId);
+  if (el) el.innerHTML = html;
+}
+
+// Render on page load
+renderFeatures('homepage-features');
+renderFeatures('info-modal-features');
+
 const MONTHS = ['Jan','Feb','Mrt','Apr','Mei','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
 const DAYS   = ['Zo','Ma','Di','Wo','Do','Vr','Za'];
 let heatmapData = null;
